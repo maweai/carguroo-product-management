@@ -1,0 +1,788 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id="bmad/bmm/workflows/4-implementation/story-context" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1</storyId>
+    <title>Upload de Manuais Técnicos (PDF)</title>
+    <status>Draft</status>
+    <generatedAt>2025-10-10</generatedAt>
+    <generator>BMAD Story Context Workflow v6</generator>
+    <sourceStoryPath>/Users/allankv/Documents/GitHub/mawe/carguroo-product-management/docs/stories/story-1.1.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>administrador da plataforma</asA>
+    <iWant>fazer upload de manuais técnicos em formato PDF via interface web</iWant>
+    <soThat>eu possa alimentar a base de conhecimento do sistema RAG que será utilizado pelo Copiloto e Sistema de Avaliação</soThat>
+    <tasks>
+      <task id="1" ac="1,2">
+        <title>Criar rota de upload de documentos</title>
+        <file>backend/rag/routes.py:upload_document</file>
+        <subtasks>
+          <subtask id="1.1">Implementar validação de file type (apenas .pdf)</subtask>
+          <subtask id="1.2">Implementar validação de file size (max 50MB)</subtask>
+          <subtask id="1.3">Implementar verificação de permissão (admin only)</subtask>
+          <subtask id="1.4">Retornar erros apropriados (400, 413, 403)</subtask>
+        </subtasks>
+      </task>
+      <task id="2" ac="5">
+        <title>Implementar serviço de upload para S3</title>
+        <file>backend/rag/services.py:DocumentService.upload_to_s3</file>
+        <subtasks>
+          <subtask id="2.1">Gerar S3 key único ({uuid}/{filename})</subtask>
+          <subtask id="2.2">Upload com boto3 e SSE-S3 encryption</subtask>
+          <subtask id="2.3">Tratamento de erros de upload (rollback)</subtask>
+          <subtask id="2.4">Logging de upload bem-sucedido</subtask>
+        </subtasks>
+      </task>
+      <task id="3" ac="6">
+        <title>Criar registro de documento em DB</title>
+        <file>backend/rag/services.py:DocumentService.create_document</file>
+        <subtasks>
+          <subtask id="3.1">Inserir em rag.documents com campos: id, name, s3_key, file_size_bytes, uploaded_by, uploaded_at</subtask>
+          <subtask id="3.2">Status inicial = 'pending'</subtask>
+          <subtask id="3.3">Transaction handling (rollback se S3 upload falhar)</subtask>
+        </subtasks>
+      </task>
+      <task id="4" ac="4">
+        <title>Trigger de processamento assíncrono</title>
+        <file>backend/rag/routes.py:upload_document</file>
+        <subtasks>
+          <subtask id="4.1">Chamar process_document_task.delay(document.id) após DB commit</subtask>
+          <subtask id="4.2">Não bloquear resposta (retornar 202 imediatamente)</subtask>
+          <subtask id="4.3">Calcular processing_eta_seconds estimado (baseado em file size)</subtask>
+        </subtasks>
+      </task>
+      <task id="5" ac="4">
+        <title>Criar endpoint de listagem de documentos</title>
+        <file>backend/rag/routes.py:list_documents</file>
+        <subtasks>
+          <subtask id="5.1">Implementar GET /api/v1/documents?status=pending</subtask>
+          <subtask id="5.2">Filtrar por status, ordenar por uploaded_at DESC</subtask>
+          <subtask id="5.3">Paginação (limit=20 default)</subtask>
+        </subtasks>
+      </task>
+      <task id="6" ac="6">
+        <title>Implementar audit logging</title>
+        <file>backend/auth/audit.py:log_document_upload</file>
+        <subtasks>
+          <subtask id="6.1">Inserir em auth.audit_log com action='document_uploaded'</subtask>
+          <subtask id="6.2">Incluir metadata: filename, size, s3_key</subtask>
+        </subtasks>
+      </task>
+      <task id="7">
+        <title>Escrever unit tests (Coverage: >80%)</title>
+        <file>backend/tests/unit/test_rag_upload.py</file>
+        <subtasks>
+          <subtask id="7.1">test_validate_pdf_extension</subtask>
+          <subtask id="7.2">test_validate_file_size_under_limit</subtask>
+          <subtask id="7.3">test_validate_file_size_over_limit</subtask>
+          <subtask id="7.4">test_admin_permission_required</subtask>
+          <subtask id="7.5">test_s3_key_generation</subtask>
+        </subtasks>
+      </task>
+      <task id="8">
+        <title>Escrever integration tests</title>
+        <file>backend/tests/integration/test_rag_upload_flow.py</file>
+        <subtasks>
+          <subtask id="8.1">test_full_upload_flow</subtask>
+          <subtask id="8.2">test_s3_upload_with_encryption</subtask>
+          <subtask id="8.3">test_audit_log_created</subtask>
+          <subtask id="8.4">test_duplicate_filename_handling</subtask>
+        </subtasks>
+      </task>
+      <task id="9" ac="1,3">
+        <title>Criar componente de upload com drag-and-drop</title>
+        <file>frontend/src/components/documents/DocumentUpload.tsx</file>
+        <subtasks>
+          <subtask id="9.1">Integrar react-dropzone para drag-and-drop UI</subtask>
+          <subtask id="9.2">Implementar validação client-side (file type + size)</subtask>
+          <subtask id="9.3">Implementar progress bar (axios onUploadProgress)</subtask>
+          <subtask id="9.4">Mostrar estados: idle, uploading, success, error</subtask>
+        </subtasks>
+      </task>
+      <task id="10" ac="4">
+        <title>Criar lista de documentos pendentes</title>
+        <file>frontend/src/components/documents/PendingDocumentsList.tsx</file>
+        <subtasks>
+          <subtask id="10.1">Implementar polling GET /api/v1/documents?status=pending (interval 5s)</subtask>
+          <subtask id="10.2">Mostrar lista com nome, tamanho, data de upload</subtask>
+          <subtask id="10.3">Auto-refresh ao detectar novo documento</subtask>
+        </subtasks>
+      </task>
+      <task id="11">
+        <title>Escrever E2E tests (Playwright)</title>
+        <file>frontend/tests/e2e/document-upload.spec.ts</file>
+        <subtasks>
+          <subtask id="11.1">Test upload via drag-and-drop</subtask>
+          <subtask id="11.2">Test upload via file picker</subtask>
+          <subtask id="11.3">Test validação client-side (arquivo >50MB)</subtask>
+          <subtask id="11.4">Test progress bar update</subtask>
+          <subtask id="11.5">Test documento aparece em lista após upload</subtask>
+        </subtasks>
+      </task>
+      <task id="12">
+        <title>Configurar S3 bucket</title>
+        <file>infra/terraform/s3.tf</file>
+        <subtasks>
+          <subtask id="12.1">Criar bucket carguroo-documents-dev</subtask>
+          <subtask id="12.2">Habilitar server-side encryption (SSE-S3)</subtask>
+          <subtask id="12.3">Configurar CORS para frontend uploads</subtask>
+          <subtask id="12.4">Configurar IAM policy (backend pode read/write, frontend não tem acesso direto)</subtask>
+        </subtasks>
+      </task>
+      <task id="13">
+        <title>Criar database migration</title>
+        <file>backend/alembic/versions/001_create_documents_table.py</file>
+        <subtasks>
+          <subtask id="13.1">Migração para criar tabela rag.documents</subtask>
+          <subtask id="13.2">Migração para criar index idx_documents_status</subtask>
+          <subtask id="13.3">Executar migration em dev environment</subtask>
+        </subtasks>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="AC1">
+      <title>Interface web permite upload de arquivos PDF (tamanho máximo 50MB)</title>
+      <given>um administrador autenticado acessa a interface de gestão de documentos</given>
+      <when>ele seleciona um arquivo PDF válido com tamanho ≤ 50MB para upload</when>
+      <then>o sistema aceita o arquivo e inicia o upload</then>
+      <test>Upload de arquivo PDF de 10MB via drag-and-drop</test>
+      <expected>Arquivo aceito, upload iniciado</expected>
+    </criterion>
+    <criterion id="AC2">
+      <title>Sistema valida formato do arquivo (apenas PDF aceito)</title>
+      <given>um administrador tenta fazer upload de um arquivo</given>
+      <when>o arquivo não tem extensão .pdf</when>
+      <then>o sistema rejeita o upload com mensagem "Only PDF files allowed"</then>
+      <testCases>
+        <case>Upload de .docx → Rejeitado</case>
+        <case>Upload de .jpg → Rejeitado</case>
+        <case>Upload de .txt → Rejeitado</case>
+        <case>Upload de .PDF (uppercase) → Aceito (case-insensitive)</case>
+      </testCases>
+      <test>Tentar upload de arquivo manual.docx</test>
+      <expected>Erro 400 com mensagem "Only PDF files allowed"</expected>
+    </criterion>
+    <criterion id="AC3">
+      <title>Upload mostra barra de progresso com % concluído</title>
+      <given>um arquivo PDF válido está sendo enviado</given>
+      <when>o upload está em progresso</when>
+      <then>a interface mostra barra de progresso com percentual atualizado em tempo real</then>
+      <technicalImplementation>
+        Frontend usando axios onUploadProgress event para atualizar progress bar
+      </technicalImplementation>
+      <test>Upload de arquivo 30MB, verificar que progress bar vai de 0% → 100%</test>
+      <expected>Progress bar atualiza corretamente</expected>
+    </criterion>
+    <criterion id="AC4">
+      <title>Após upload bem-sucedido, documento aparece em lista de "Pendentes de Processamento"</title>
+      <given>um arquivo PDF foi enviado com sucesso</given>
+      <when>o backend retorna resposta 202 Accepted</when>
+      <then>o documento aparece na seção "Pendentes de Processamento" com status pending</then>
+      <technicalImplementation>
+        Frontend faz polling GET /api/v1/documents?status=pending a cada 5 segundos. UI mostra lista ordenada por uploaded_at DESC.
+      </technicalImplementation>
+      <test>Após upload, verificar que documento aparece na lista com status "Pendente"</test>
+      <expected>Documento visível na lista "Pendentes de Processamento"</expected>
+    </criterion>
+    <criterion id="AC5">
+      <title>Sistema armazena PDF em storage seguro (S3 ou equivalente)</title>
+      <given>um arquivo PDF foi aceito para upload</given>
+      <when>o upload é concluído</when>
+      <then>o arquivo está armazenado em S3 com server-side encryption ativado</then>
+      <verification>
+        Backend test verifica que s3_object['ServerSideEncryption'] == 'AES256'
+      </verification>
+      <test>Verificar que arquivo no S3 tem ServerSideEncryption='AES256'</test>
+      <expected>Encryption ativado</expected>
+    </criterion>
+    <criterion id="AC6">
+      <title>Metadados básicos são coletados: nome do arquivo, tamanho, data de upload, uploader</title>
+      <given>um arquivo PDF foi enviado</given>
+      <when>o sistema cria registro na tabela rag.documents</when>
+      <then>os seguintes metadados estão preenchidos: name (filename original), file_size_bytes (tamanho exato), uploaded_at (timestamp UTC), uploaded_by (UUID do admin)</then>
+      <test>Após upload, query DB e verificar que campos estão corretos</test>
+      <expected>Todos os metadados preenchidos corretamente</expected>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/PRD-CarGuroo-2025-10-10.md</path>
+        <title>CarGuroo Product Requirements Document</title>
+        <section>Functional Requirements - FR-05</section>
+        <snippet>
+          FR-05: Ingestão e Processamento de Base de Conhecimento
+          O sistema deve ingerir, processar e indexar manuais técnicos (PDF), histórico de help desk e conteúdos de treinamento, realizando chunking, embedding e armazenamento em vector database.
+        </snippet>
+        <relevance>Define o requisito funcional principal para upload de documentos PDF</relevance>
+      </doc>
+      <doc>
+        <path>docs/PRD-CarGuroo-2025-10-10.md</path>
+        <title>CarGuroo Product Requirements Document</title>
+        <section>Non-Functional Requirements - NFR-05</section>
+        <snippet>
+          NFR-05: Segurança e Privacidade de Dados (LGPD)
+          O sistema deve estar em compliance com LGPD:
+          - Criptografia em trânsito (TLS 1.3) e em repouso (AES-256)
+          - Isolamento de dados por tenant
+          - Logs de acesso e auditoria completos
+          - Capacidade de anonimização e exclusão de dados
+        </snippet>
+        <relevance>Define requisitos de segurança e encryption para storage de documentos</relevance>
+      </doc>
+      <doc>
+        <path>docs/epics-CarGuroo-2025-10-10.md</path>
+        <title>CarGuroo Epics Breakdown</title>
+        <section>Epic 1 - US-RAG-01</section>
+        <snippet>
+          US-RAG-01: Upload de Manuais Técnicos (PDF)
+
+          Como administrador da plataforma
+          Quero fazer upload de manuais técnicos em formato PDF via interface web
+          Para que eu possa alimentar a base de conhecimento do sistema
+
+          Pré-requisitos: Nenhum (primeira story)
+
+          Critérios de Aceitação:
+          1. Interface web permite upload de arquivos PDF (tamanho máximo 50MB)
+          2. Sistema valida formato do arquivo (apenas PDF aceito)
+          3. Upload mostra barra de progresso com % concluído
+          4. Após upload bem-sucedido, documento aparece em lista de "Pendentes de Processamento"
+          5. Sistema armazena PDF em storage seguro (S3 ou equivalente)
+          6. Metadados básicos são coletados: nome do arquivo, tamanho, data de upload, uploader
+
+          Notas Técnicas:
+          - Storage: AWS S3 ou Google Cloud Storage
+          - Backend: endpoint POST /api/v1/documents/upload
+          - Frontend: drag-and-drop interface (React Dropzone ou similar)
+        </snippet>
+        <relevance>Story source completa com ACs e notas técnicas</relevance>
+      </doc>
+      <doc>
+        <path>docs/tech-specs-CarGuroo-2025-10-10.md</path>
+        <title>CarGuroo Technical Specifications</title>
+        <section>1.2 API Specifications - POST /api/v1/documents/upload</section>
+        <snippet>
+          Purpose: Upload de manual técnico (PDF)
+
+          Request:
+          POST /api/v1/documents/upload
+          Content-Type: multipart/form-data
+          Authorization: Bearer jwt_token
+
+          Response (202 Accepted):
+          {
+            "document_id": "uuid",
+            "name": "Manual_Tecnico_XYZ_2023.pdf",
+            "size_bytes": 52428800,
+            "status": "pending",
+            "uploaded_at": "2025-10-10T14:30:00Z",
+            "processing_eta_seconds": 180
+          }
+
+          Implementation: FastAPI route with file validation (PDF only, max 50MB), S3 upload with SSE-S3 encryption, DB record creation, Celery task trigger for async processing.
+        </snippet>
+        <relevance>Especificação técnica completa do endpoint de upload</relevance>
+      </doc>
+      <doc>
+        <path>docs/solution-architecture.md</path>
+        <title>CarGuroo Solution Architecture</title>
+        <section>ADR-006: Deployment Target - AWS S3 Storage</section>
+        <snippet>
+          Decision: Usar AWS S3 como primary storage para documentos PDF
+
+          Rationale:
+          - S3 Standard tier para hot access
+          - Server-side encryption (SSE-S3 mínimo, SSE-KMS se exigido por compliance)
+          - Bucket structure: carguroo-documents-{env} (separate buckets for dev/staging/prod)
+          - Naming convention: {document_id}/{original_filename} (UUID-based)
+
+          Storage Service: boto3 (AWS SDK for Python)
+          Estimated cost: ~$10/mês para 50GB de manuais técnicos
+        </snippet>
+        <relevance>Define decisão arquitetural de storage e configuração de S3</relevance>
+      </doc>
+      <doc>
+        <path>docs/solution-architecture.md</path>
+        <title>CarGuroo Solution Architecture</title>
+        <section>Component Breakdown: RAG Module</section>
+        <snippet>
+          RAG Module (/backend/rag):
+
+          Sub-modules:
+          - Ingestion (rag/ingestion): Upload, validação, armazenamento de PDFs
+          - Processing (rag/processing): Extração de texto, OCR, chunking
+          - Embedding (rag/embedding): Geração de embeddings via OpenAI API
+          - Indexing (rag/indexing): Inserção de vectors no Qdrant
+          - Search (rag/search): Busca semântica com similarity ranking
+
+          Key APIs:
+          - POST /api/v1/documents/upload - Upload de documento
+          - GET /api/v1/search - Busca semântica
+          - GET /api/v1/documents - Listar documentos indexados
+          - DELETE /api/v1/documents/{id} - Deletar documento + chunks
+        </snippet>
+        <relevance>Define boundaries e responsibilities do módulo RAG</relevance>
+      </doc>
+      <doc>
+        <path>docs/solution-architecture.md</path>
+        <title>CarGuroo Solution Architecture</title>
+        <section>Data Architecture: rag.documents table schema</section>
+        <snippet>
+          CREATE TABLE rag.documents (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name VARCHAR(255) NOT NULL,
+            s3_key VARCHAR(500) NOT NULL,
+            file_size_bytes BIGINT,
+            status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'error')),
+            uploaded_by UUID REFERENCES auth.users(id),
+            uploaded_at TIMESTAMP DEFAULT NOW(),
+            processed_at TIMESTAMP,
+            total_chunks INTEGER,
+            error_message TEXT
+          );
+
+          CREATE INDEX idx_documents_status ON rag.documents(status);
+
+          Fields Populated by Upload Story:
+          - id: Auto-generated UUID
+          - name: Original filename
+          - s3_key: {document_id}/{original_filename}
+          - file_size_bytes: Size in bytes
+          - status: Initialized as 'pending'
+          - uploaded_by: Admin user ID
+          - uploaded_at: Timestamp (UTC)
+        </snippet>
+        <relevance>Schema completo da tabela de documentos com campos e indexes</relevance>
+      </doc>
+      <doc>
+        <path>docs/solution-architecture.md</path>
+        <title>CarGuroo Solution Architecture</title>
+        <section>Security Architecture: Authentication and RBAC</section>
+        <snippet>
+          Authorization (RBAC):
+
+          Permission Matrix:
+          | Resource               | Admin | Gestor | Mecânico |
+          |------------------------|-------|--------|----------|
+          | Upload de Documentos   | ✅     | ❌      | ❌        |
+          | Gestão de Usuários     | ✅     | ❌      | ❌        |
+
+          Enforcement:
+          @require_role("admin")
+          async def upload_document(request):
+              ...
+
+          Data Encryption:
+          - In Transit: TLS 1.3 em todas as conexões HTTP
+          - At Rest: S3 server-side encryption (SSE-S3 ou SSE-KMS)
+
+          Audit Logging:
+          - Todas as operações de upload são registradas em auth.audit_log table
+          - action = 'document_uploaded'
+          - resource_type = 'document'
+          - metadata = {filename, size_bytes, s3_key}
+        </snippet>
+        <relevance>Define requisitos de autenticação, autorização, encryption e audit logging</relevance>
+      </doc>
+    </docs>
+
+    <code>
+      <!-- No existing code artifacts - this is the first story (US-RAG-01) -->
+      <note>Esta é a primeira story do projeto. Não há código existente para referenciar. Todo código será criado do zero seguindo as especificações arquiteturais.</note>
+    </code>
+
+    <dependencies>
+      <backend ecosystem="python">
+        <note>Backend dependencies ainda não definidas. Baseado em tech specs, as seguintes libs serão necessárias:</note>
+        <dependency name="fastapi" version="0.104+" purpose="Web framework async" />
+        <dependency name="sqlalchemy" version="2.0+" purpose="ORM" />
+        <dependency name="alembic" version="1.12+" purpose="Database migrations" />
+        <dependency name="pydantic" version="2.0+" purpose="Validation" />
+        <dependency name="boto3" version="latest" purpose="AWS S3 client" />
+        <dependency name="celery" version="5.3+" purpose="Async background jobs" />
+        <dependency name="python-multipart" version="latest" purpose="File upload support" />
+        <dependency name="pytest" version="7.4+" purpose="Testing framework" />
+        <dependency name="pytest-asyncio" version="latest" purpose="Async test support" />
+      </backend>
+
+      <frontend ecosystem="node">
+        <note>Frontend dependencies ainda não definidas. Baseado em tech specs, as seguintes libs serão necessárias:</note>
+        <dependency name="react" version="18+" purpose="UI framework" />
+        <dependency name="typescript" version="5.0+" purpose="Type safety" />
+        <dependency name="axios" version="1.6+" purpose="HTTP client" />
+        <dependency name="react-dropzone" version="latest" purpose="Drag-and-drop file upload" />
+        <dependency name="react-query" version="5.0+" purpose="Server state management" />
+        <dependency name="playwright" version="latest" purpose="E2E testing" />
+      </frontend>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <architectural>
+      <constraint id="arch-1">
+        <title>Modular Monolith Pattern</title>
+        <description>Backend é um monolith modular (não microservices). Módulo RAG fica em /backend/rag com sub-módulos bem definidos (ingestion, processing, embedding, indexing, search).</description>
+        <source>solution-architecture.md - ADR-001</source>
+      </constraint>
+      <constraint id="arch-2">
+        <title>Async Processing Pattern</title>
+        <description>Upload de PDF não deve bloquear resposta HTTP. Usar Celery para processamento assíncrono. Retornar 202 Accepted imediatamente após upload para S3 e criação de registro DB.</description>
+        <source>solution-architecture.md - ADR-008</source>
+      </constraint>
+      <constraint id="arch-3">
+        <title>Storage on AWS S3</title>
+        <description>PDFs devem ser armazenados em S3 (não filesystem local). Usar SSE-S3 encryption. Bucket naming: carguroo-documents-{env}. File key pattern: {document_id}/{original_filename}.</description>
+        <source>solution-architecture.md - ADR-006</source>
+      </constraint>
+    </architectural>
+
+    <security>
+      <constraint id="sec-1">
+        <title>Admin-Only Upload Permission</title>
+        <description>Apenas usuários com role='admin' podem fazer upload de documentos. Verificar role via RBAC middleware antes de aceitar upload.</description>
+        <source>solution-architecture.md - Security Architecture</source>
+      </constraint>
+      <constraint id="sec-2">
+        <title>File Validation (Type and Size)</title>
+        <description>Validar file extension (.pdf apenas, case-insensitive). Validar file size (max 50MB = 52,428,800 bytes). Rejeitar com HTTP 400 (tipo inválido) ou 413 (tamanho excedido).</description>
+        <source>epics-CarGuroo-2025-10-10.md - US-RAG-01 AC2</source>
+      </constraint>
+      <constraint id="sec-3">
+        <title>Encryption In-Transit and At-Rest</title>
+        <description>Todas conexões HTTP devem usar TLS 1.3. Arquivos no S3 devem ter server-side encryption (SSE-S3 mínimo). Verificar ServerSideEncryption='AES256' em testes.</description>
+        <source>PRD-CarGuroo-2025-10-10.md - NFR-05</source>
+      </constraint>
+      <constraint id="sec-4">
+        <title>Audit Logging Required</title>
+        <description>Todas operações de upload devem ser logadas em auth.audit_log table com action='document_uploaded', resource_type='document', metadata={filename, size_bytes, s3_key}.</description>
+        <source>solution-architecture.md - Security Architecture</source>
+      </constraint>
+    </security>
+
+    <database>
+      <constraint id="db-1">
+        <title>Database Schema: rag.documents</title>
+        <description>Usar tabela rag.documents conforme schema definido (id UUID PK, name VARCHAR(255), s3_key VARCHAR(500), file_size_bytes BIGINT, status VARCHAR(50), uploaded_by UUID FK, uploaded_at TIMESTAMP, processed_at TIMESTAMP, total_chunks INT, error_message TEXT).</description>
+        <source>solution-architecture.md - Data Architecture</source>
+      </constraint>
+      <constraint id="db-2">
+        <title>Transaction Handling</title>
+        <description>Upload para S3 e inserção em DB devem estar em transação. Se S3 falhar, não criar registro DB. Se DB falhar, deletar arquivo do S3 (rollback).</description>
+        <source>tech-specs-CarGuroo-2025-10-10.md - Error Handling</source>
+      </constraint>
+      <constraint id="db-3">
+        <title>Initial Status = Pending</title>
+        <description>Novo documento criado deve ter status='pending'. Status será atualizado para 'processing', 'completed' ou 'error' por stories subsequentes (US-RAG-02/03).</description>
+        <source>solution-architecture.md - Data Architecture</source>
+      </constraint>
+    </database>
+
+    <testing>
+      <constraint id="test-1">
+        <title>Unit Test Coverage > 80%</title>
+        <description>Código backend deve ter cobertura de testes unitários > 80%. Usar pytest + pytest-cov. Validar file type, file size, permissions, S3 key generation.</description>
+        <source>tech-specs-CarGuroo-2025-10-10.md - Testing Strategy</source>
+      </constraint>
+      <constraint id="test-2">
+        <title>Integration Tests Required</title>
+        <description>Implementar testes de integração para full upload flow (file → S3 → DB → Celery trigger). Verificar encryption, audit log, handling de duplicate filenames.</description>
+        <source>tech-specs-CarGuroo-2025-10-10.md - Integration Tests</source>
+      </constraint>
+      <constraint id="test-3">
+        <title>E2E Tests with Playwright</title>
+        <description>Implementar testes E2E para drag-and-drop upload, file picker, progress bar, validação client-side, documento aparecendo em lista pendente.</description>
+        <source>tech-specs-CarGuroo-2025-10-10.md - E2E Tests</source>
+      </constraint>
+    </testing>
+  </constraints>
+
+  <interfaces>
+    <api>
+      <endpoint>
+        <method>POST</method>
+        <path>/api/v1/documents/upload</path>
+        <description>Upload de manual técnico PDF com validação e armazenamento em S3</description>
+        <authentication>Bearer JWT token (admin role required)</authentication>
+        <requestFormat>multipart/form-data</requestFormat>
+        <requestBody>
+          <field name="file" type="binary" required="true">Arquivo PDF (max 50MB)</field>
+          <field name="metadata" type="json" required="false">
+            {
+              "document_type": "manual_tecnico",
+              "vehicle_model": "XYZ-2023",
+              "tags": ["freios", "motor", "eletrica"]
+            }
+          </field>
+        </requestBody>
+        <responseFormat>application/json</responseFormat>
+        <responseStatus>202 Accepted</responseStatus>
+        <responseBody>
+          {
+            "document_id": "uuid",
+            "name": "Manual_Tecnico_XYZ_2023.pdf",
+            "size_bytes": 52428800,
+            "status": "pending",
+            "uploaded_at": "2025-10-10T14:30:00Z",
+            "processing_eta_seconds": 180
+          }
+        </responseBody>
+        <errorResponses>
+          <error status="400">File type not allowed (only PDF)</error>
+          <error status="403">Insufficient permissions (admin only)</error>
+          <error status="413">File too large (max 50MB)</error>
+          <error status="500">Internal server error (S3 upload failed or DB error)</error>
+        </errorResponses>
+        <implementation>
+          <file>backend/rag/routes.py</file>
+          <function>upload_document</function>
+        </implementation>
+      </endpoint>
+
+      <endpoint>
+        <method>GET</method>
+        <path>/api/v1/documents</path>
+        <description>Listar documentos com filtro por status</description>
+        <authentication>Bearer JWT token</authentication>
+        <queryParams>
+          <param name="status" type="string" required="false">Filter by status (pending, processing, completed, error)</param>
+          <param name="limit" type="int" required="false" default="20">Pagination limit</param>
+          <param name="offset" type="int" required="false" default="0">Pagination offset</param>
+        </queryParams>
+        <responseFormat>application/json</responseFormat>
+        <responseStatus>200 OK</responseStatus>
+        <responseBody>
+          {
+            "documents": [
+              {
+                "id": "uuid",
+                "name": "Manual_Tecnico_XYZ_2023.pdf",
+                "size_bytes": 52428800,
+                "status": "pending",
+                "uploaded_at": "2025-10-10T14:30:00Z",
+                "uploaded_by": "admin_user_id"
+              }
+            ],
+            "total": 1,
+            "limit": 20,
+            "offset": 0
+          }
+        </responseBody>
+        <implementation>
+          <file>backend/rag/routes.py</file>
+          <function>list_documents</function>
+        </implementation>
+      </endpoint>
+    </api>
+
+    <internal>
+      <interface>
+        <name>DocumentService</name>
+        <kind>class</kind>
+        <file>backend/rag/services.py</file>
+        <methods>
+          <method>
+            <signature>async def upload_to_s3(file: UploadFile, file_bytes: bytes) -> str</signature>
+            <purpose>Upload file to S3 with SSE-S3 encryption. Returns s3_key.</purpose>
+            <returns>s3_key (str): Path to file in S3 ({uuid}/{filename})</returns>
+            <raises>
+              <exception>S3UploadError: If upload fails</exception>
+            </raises>
+          </method>
+          <method>
+            <signature>async def create_document(name: str, s3_key: str, file_size_bytes: int, uploaded_by: UUID) -> Document</signature>
+            <purpose>Create document record in rag.documents table with status='pending'</purpose>
+            <returns>Document ORM instance</returns>
+            <raises>
+              <exception>DatabaseError: If insertion fails</exception>
+            </raises>
+          </method>
+        </methods>
+      </interface>
+
+      <interface>
+        <name>AuditService</name>
+        <kind>class</kind>
+        <file>backend/auth/audit.py</file>
+        <methods>
+          <method>
+            <signature>async def log_document_upload(user_id: UUID, document_id: UUID, metadata: dict) -> None</signature>
+            <purpose>Log document upload action to auth.audit_log table</purpose>
+            <parameters>
+              <param name="user_id">Admin user who performed upload</param>
+              <param name="document_id">ID of uploaded document</param>
+              <param name="metadata">Dict with filename, size_bytes, s3_key</param>
+            </parameters>
+          </method>
+        </methods>
+      </interface>
+    </internal>
+
+    <external>
+      <dependency>
+        <name>AWS S3 (boto3)</name>
+        <kind>cloud_service</kind>
+        <usage>Storage layer for PDF files</usage>
+        <methods>
+          <method>
+            <signature>s3_client.put_object(Bucket, Key, Body, ContentType, ServerSideEncryption)</signature>
+            <purpose>Upload file to S3 with encryption</purpose>
+          </method>
+          <method>
+            <signature>s3_client.delete_object(Bucket, Key)</signature>
+            <purpose>Delete file from S3 (rollback on error)</purpose>
+          </method>
+        </methods>
+      </dependency>
+
+      <dependency>
+        <name>Celery</name>
+        <kind>task_queue</kind>
+        <usage>Async processing trigger for document processing</usage>
+        <methods>
+          <method>
+            <signature>process_document_task.delay(document_id: str)</signature>
+            <purpose>Trigger async processing task for uploaded document</purpose>
+            <note>Task implementation will be in US-RAG-02/03. For this story, just trigger it (stub OK).</note>
+          </method>
+        </methods>
+      </dependency>
+
+      <dependency>
+        <name>React Dropzone</name>
+        <kind>frontend_library</kind>
+        <usage>Drag-and-drop file upload UI</usage>
+        <implementation>
+          <component>DocumentUpload.tsx</component>
+          <features>Drag zone, file picker, client-side validation, progress bar</features>
+        </implementation>
+      </dependency>
+    </external>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <framework backend="pytest" frontend="playwright" />
+      <coverage>Backend unit tests must have > 80% code coverage (pytest-cov)</coverage>
+      <patterns>
+        <pattern>Unit tests: Test individual functions in isolation with mocks for external dependencies (S3, DB)</pattern>
+        <pattern>Integration tests: Test full flow with real DB (docker-compose test stack) and mocked S3 (moto library)</pattern>
+        <pattern>E2E tests: Test user workflows in browser (Playwright) with full stack running</pattern>
+      </patterns>
+    </standards>
+
+    <locations>
+      <backend>
+        <path>backend/tests/unit/test_rag_upload.py</path>
+        <description>Unit tests for upload route, validation, S3 service</description>
+      </backend>
+      <backend>
+        <path>backend/tests/integration/test_rag_upload_flow.py</path>
+        <description>Integration tests for full upload flow</description>
+      </backend>
+      <frontend>
+        <path>frontend/tests/e2e/document-upload.spec.ts</path>
+        <description>E2E tests for upload UI and document list</description>
+      </frontend>
+    </locations>
+
+    <ideas>
+      <testIdea ac="AC1,AC2">
+        <title>File Type Validation Tests</title>
+        <description>Test that only PDF files are accepted (.pdf extension, case-insensitive). Reject .docx, .jpg, .txt with 400 error.</description>
+        <testCases>
+          <case>test_validate_pdf_extension_lowercase (upload "manual.pdf" → accept)</case>
+          <case>test_validate_pdf_extension_uppercase (upload "manual.PDF" → accept)</case>
+          <case>test_reject_docx_file (upload "manual.docx" → 400 error)</case>
+          <case>test_reject_image_file (upload "image.jpg" → 400 error)</case>
+        </testCases>
+      </testIdea>
+
+      <testIdea ac="AC1,AC2">
+        <title>File Size Validation Tests</title>
+        <description>Test that files under 50MB are accepted, files over 50MB are rejected with 413 error.</description>
+        <testCases>
+          <case>test_accept_file_under_limit (10MB file → accept)</case>
+          <case>test_accept_file_at_limit (exactly 50MB → accept)</case>
+          <case>test_reject_file_over_limit (60MB file → 413 error)</case>
+        </testCases>
+      </testIdea>
+
+      <testIdea ac="AC1,AC2">
+        <title>Permission Enforcement Tests</title>
+        <description>Test that only admin users can upload. Reject mecânico or gestor with 403 error.</description>
+        <testCases>
+          <case>test_admin_can_upload (user with role='admin' → upload succeeds)</case>
+          <case>test_gestor_cannot_upload (user with role='gestor' → 403 error)</case>
+          <case>test_mecanico_cannot_upload (user with role='mecanico' → 403 error)</case>
+        </testCases>
+      </testIdea>
+
+      <testIdea ac="AC5">
+        <title>S3 Storage and Encryption Tests</title>
+        <description>Test that file is uploaded to S3 with correct path and encryption enabled.</description>
+        <testCases>
+          <case>test_file_uploaded_to_s3 (verify file exists in S3 with correct key)</case>
+          <case>test_s3_encryption_enabled (verify ServerSideEncryption='AES256')</case>
+          <case>test_s3_key_format (verify key matches {uuid}/{filename} pattern)</case>
+        </testCases>
+      </testIdea>
+
+      <testIdea ac="AC6">
+        <title>Database Metadata Tests</title>
+        <description>Test that document record is created in DB with all required metadata fields populated.</description>
+        <testCases>
+          <case>test_document_created_in_db (verify record exists in rag.documents table)</case>
+          <case>test_metadata_fields_populated (verify id, name, s3_key, file_size_bytes, uploaded_by, uploaded_at)</case>
+          <case>test_initial_status_is_pending (verify status='pending')</case>
+        </testCases>
+      </testIdea>
+
+      <testIdea ac="AC4">
+        <title>Async Processing Trigger Tests</title>
+        <description>Test that Celery task is triggered after successful upload.</description>
+        <testCases>
+          <case>test_celery_task_triggered (verify process_document_task.delay called with document_id)</case>
+          <case>test_response_is_202_accepted (verify HTTP 202 returned, not 200)</case>
+          <case>test_processing_eta_calculated (verify processing_eta_seconds present in response)</case>
+        </testCases>
+      </testIdea>
+
+      <testIdea ac="AC6">
+        <title>Audit Logging Tests</title>
+        <description>Test that upload is logged to audit table with correct action and metadata.</description>
+        <testCases>
+          <case>test_audit_log_created (verify record in auth.audit_log table)</case>
+          <case>test_audit_action_is_document_uploaded (verify action='document_uploaded')</case>
+          <case>test_audit_metadata_correct (verify metadata contains filename, size_bytes, s3_key)</case>
+        </testCases>
+      </testIdea>
+
+      <testIdea ac="AC1,AC3,AC4">
+        <title>Frontend E2E Upload Tests</title>
+        <description>Test complete user journey from drag-and-drop to document appearing in pending list.</description>
+        <testCases>
+          <case>test_drag_and_drop_upload (drag PDF file to dropzone → upload succeeds)</case>
+          <case>test_progress_bar_updates (verify progress bar goes from 0% to 100% during upload)</case>
+          <case>test_document_appears_in_list (verify document shows up in "Pendentes" list after upload)</case>
+          <case>test_client_side_validation (try uploading 60MB file → rejected before sending to server)</case>
+        </testCases>
+      </testIdea>
+
+      <testIdea>
+        <title>Error Handling and Rollback Tests</title>
+        <description>Test that errors are handled gracefully with proper rollbacks.</description>
+        <testCases>
+          <case>test_s3_upload_failure_rollback (if S3 upload fails, no DB record created)</case>
+          <case>test_db_insertion_failure_rollback (if DB insert fails, S3 file deleted)</case>
+          <case>test_duplicate_filename_handling (uploading same filename twice → different UUIDs, no collision)</case>
+        </testCases>
+      </testIdea>
+    </ideas>
+  </tests>
+</story-context>
