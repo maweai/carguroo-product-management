@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: carguroo-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://carguroo_user:secure_password@postgres:5432/carguroo_db
+      - REDIS_URL=redis://redis:6379/0
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_REGION=us-east-1
+      - S3_BUCKET_NAME=carguroo-documents-dev
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-min-32-chars-long
+      - ENV=development
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+      - localstack
+    networks:
+      - carguroo-network
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery Worker
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: carguroo-celery
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://carguroo_user:secure_password@postgres:5432/carguroo_db
+      - REDIS_URL=redis://redis:6379/0
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_REGION=us-east-1
+      - S3_BUCKET_NAME=carguroo-documents-dev
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-min-32-chars-long
+      - ENV=development
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+      - localstack
+    networks:
+      - carguroo-network
+    command: celery -A worker worker --loglevel=info --concurrency=2
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: carguroo-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - carguroo-network
+    command: npm run dev -- --host
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: carguroo-postgres
+    environment:
+      POSTGRES_USER: carguroo_user
+      POSTGRES_PASSWORD: secure_password
+      POSTGRES_DB: carguroo_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - carguroo-network
+
+  # Redis
+  redis:
+    image: redis:7
+    container_name: carguroo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - carguroo-network
+
+  # LocalStack (S3 local)
+  localstack:
+    image: localstack/localstack:latest
+    container_name: carguroo-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - DEFAULT_REGION=us-east-1
+      - DEBUG=0
+      - PERSISTENCE=0
+    networks:
+      - carguroo-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  carguroo-network:
+    driver: bridge

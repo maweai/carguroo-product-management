@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: carguroo-postgres
+    environment:
+      POSTGRES_USER: carguroo_user
+      POSTGRES_PASSWORD: secure_password
+      POSTGRES_DB: carguroo_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - carguroo-network
+
+  redis:
+    image: redis:7
+    container_name: carguroo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - carguroo-network
+
+  # LocalStack for S3 simulation (development only)
+  localstack:
+    image: localstack/localstack:latest
+    container_name: carguroo-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - DEFAULT_REGION=us-east-1
+      - DATA_DIR=/tmp/localstack/data
+    volumes:
+      - localstack_data:/tmp/localstack
+    networks:
+      - carguroo-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  localstack_data:
+
+networks:
+  carguroo-network:
+    driver: bridge
